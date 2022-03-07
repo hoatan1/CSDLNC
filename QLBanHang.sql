@@ -1,7 +1,7 @@
-﻿CREATE DATABASE QLMuaHang4
+﻿CREATE DATABASE QLMuaHang
 GO 
 
-USE QLMuaHang4
+USE QLMuaHang
 GO
 
 CREATE TABLE CUSTOMERS(
@@ -88,10 +88,11 @@ GO
 	('MCT5','MHD2','SP1',3,30000);
  
 --VIEW_1
-	-- khung nhìn: Tạo một khung nhìn có tên là view_KHACHHANG để lấy thông tin của tất cả khách hàng bao gồm thông tin hoá đơn.
+	-- khung nhìn: Tạo một khung nhìn có tên là view_KHACHHANG để lấy thông tin của tất cả khách hàng mã khách hàng, tên, email, địa chỉ,sdt, ngày hoá đơn, tổng số tiền và trạng thái hoá đơn khách hàng mua của khách hàng có địa chỉ ở' Quảng nam';
+
 	CREATE VIEW view_KHACHHANG AS 
 	SELECT CUSTOMERS.MaKH,CUSTOMERS.HoTen,CUSTOMERS.Email,CUSTOMERS.Phone,CUSTOMERS.DiaChi,ORDERS.MaHD,ORDERS.NgayDH,ORDERS.TongTien,ORDERS.TrangThaiDH
-	FROM CUSTOMERS JOIN ORDERS ON CUSTOMERS.MaKH=ORDERS.MaKH;
+	FROM CUSTOMERS JOIN ORDERS ON CUSTOMERS.MaKH=ORDERS.MaKH WHERE CUSTOMERS.DiaChi=N'Quảng Nam';
 	-- Sử dụng khung nhìn
 	SELECT * FROM dbo.view_KHACHHANG;
 
@@ -106,7 +107,7 @@ GO
 	SELECT * FROM dbo.view_HOADON ;
 
 --VIEW_3
-    --tạo một khung nhìn xem thông tin hoá đơn sẽ gồm mã hoá đơn, ngày đăng ký , tổng tiền và tên phương thức thanh toán của hoá đơn đó với phí thanh toán là bao nhiêu
+    --tạo một khung nhìn view_CTHD xem thông tin hoá đơn sẽ gồm mã hoá đơn, ngày đăng ký , tổng tiền và tên phương thức thanh toán của hoá đơn đó với phí thanh toán là bao nhiêu
 	CREATE VIEW view_CTHD
 	AS
 	    SELECT hd.MaHD, hd.NgayDH, pm.MaPTTT,pm.TenPTTT,pm.PhiPTTT FROM ORDERS as hd 
@@ -114,7 +115,7 @@ GO
 	  --sử dụng khung nhìn
 	   SELECT*FROM dbo.view_CTHD;
 
-
+--DƯƠNG
 --PROCEDURE_1
 	--Tạo một thủ tục dùng để thêm vào bảng chi tiết hóa đơn sao cho khóa chính chưa tồn tại và các khóa ngoại hợp lệ
 		--kiểm tra số lượng thêm có lớn hơn số lượng sp hiện có không
@@ -172,8 +173,9 @@ GO
 	insert_ORDERDATAIL 'MCT6', 'MHD0', 'SP4', 3;  --sai
 	insert_ORDERDATAIL 'MCT6', 'MHD1', 'SP6', 3;  --sai
 	insert_ORDERDATAIL 'MCT6', 'MHD1', 'SP4', 5;  --đúng
-
+--DUY
 --PROCEDURE_2
+--Tạo thủ tục có tên INSERT_SANPHAM để thêm sản phẩm vào với điều kiện phải hợp lệ. Những mã sản phẩm đã tồn tại rồi thì thông báo lỗi , Số lượng sản phẩm phải dương ngược lại sẽ thêm sản phẩm đó vào bảng sản phẩm
 	CREATE PROCEDURE INSERT_SANPHAM(
 		@MaSP varchar(50),
 		@TenSP varchar(50),
@@ -194,10 +196,78 @@ GO
 	END
 	--lệnh chạy
 	INSERT_SANPHAM 'MaSP1' ,'PEPSI', 'téiuidu', 20000 ,2;
+--NGUYỄN MINH HUY
+--procedure 3;
+--tạo procedure để insert vào bảng orders ,Kiểm tra xem MAHD có tồn tại chưa nếu tồn tại thì không cho insert
+--, kiểm tra xem MaKH có tồn tại không, kiểm tra xem phương thức thanh toán có tồn tại không
+--nếu cả 2 thỏa mãn điều kiện tồn tại thì cho insert và ngược lại
+
+  CREATE procedure insert_orders(
+    @MaHD VARCHAR(10),
+	@MaKH VARCHAR(10) ,
+	@NgayDH DATE,
+	@TrangThaiDH NVARCHAR(255),
+	@TongTien float,
+	@MaPTTT VARCHAR(10) 
+  )as
+  begin
+		if exists (select*from ORDERS where MaHD=@MaHD)
+		begin
+			print N'MaHD đã tồn tại'
+			return
+		end
+		if not exists (select*from CUSTOMERS where MaKH=@MaKH)
+		begin
+			print N'Mã Khách hàng không tồn tại'
+			return
+		end
+		if not exists (select*from PAYMENTSS where MaPTTT=@MaPTTT)
+		begin
+			print N'Mã PTTT không tồn tại'
+			return
+		end
+
+		insert into ORDERS (MaHD,MaKH,NgayDH,TrangThaiDH,TongTien,MaPTTT) values
+		(@MaHD,@MaKH,@NgayDH,@TrangThaiDH,@TongTien,@MaPTTT)
+
+  end
 
 
+
+drop procedure insert_orders
+--lệnh chạy
+insert_orders 'MHD5','MKH1','2021-12-12','Đã giao',130000,'MPTTT1'--sai MaHD đã tồn tại
+insert_orders 'MHD6','MKH7','2021-12-12','Đã giao',130000,'MPTTT1'--sai MaKH không tồn tại
+insert_orders 'MHD6','MKH5','2021-12-12','Đã giao',130000,'MPTTT7'--sai MaPTTT không tồn tại
+insert_orders 'MHD6','MKH5','2021-12-12','Đã giao',130000,'MPTTT1'--đúng
+-- ĐOÀN NGỌC HỘI
+	--PROCEDURE_4
+	-- Tăng 10% cho giá của các sản phẩm
+	CREATE PROC Tang_GiaSP
+	AS
+		UPDATE PRODUCTS SET GiaSP = GiaSP * 1.1
+	GO
+	-- Lệnh chạy thủ tục
+	EXEC Tang_GiaSP
+	SELECT*FROM PRODUCTS;
+
+	--PROCEDURE_5
+	--Đếm tổng số lượng của sản phẩm
+	CREATE PROC In_so_luong_sp @depid int = NULL
+	AS
+		DECLARE @Dem int   
+		SELECT @Dem = SUM(SoLuong)
+		FROM dbo.PRODUCTS
+		WHERE SoLuong = @depid OR @depid IS NULL
+		PRINT N'Tổng Số lượng sản phẩm: ' + STR(@Dem)
+	GO
+	-- Lệnh chạy thu tuc
+	EXEC In_so_luong_sp
+
+
+--HUYỀN
 --FUNCTION_1
-	-- Đếm số hoá đơn trong tháng 3-2022 chỉ đếm đối với những sản phẩm có tên là 'Coca'  
+	--  Viết hàm funct_HOADON()  để đếm số hoá đơn trong năm 2022 ,chỉ đếm đối với những sản phẩm có tên là 'Coca'  
 	CREATE FUNCTION funct_HOADON()
 	RETURNS int
 	AS
@@ -210,16 +280,15 @@ GO
 	   END
 	--Lệnh chạy hàm
 	select [dbo].[funct_HOADON] ()
-	--Kiểm tra kết quả
-	SELECT COUNT(MaHD) as SoHoaDon
-	FROM ORDERS 
-	WHERE NgayDH BETWEEN '2022-01-01' AND '2022-12-01'
-	AND MaHD IN(SELECT MaHD FROM ORDER_DETAIL WHERE MaSP IN (SELECT MaSP FROM PRODUCTS WHERE TenSP= N'Coca'));
-
+	--
+	SELECT*FROM PRODUCTS;
+	SELECT*FROM ORDER_DETAIL;
+	SELECT*FROM ORDERS;
+--DƯƠNG
 --FUNCTION_2
-	--Tính tổng tiền cho 1 hóa đơn với mã hóa đơn là tham số đầu vào
+	--Viết hàm tính tổng tiền cho 1 hóa đơn với mã hóa đơn là tham số đầu vào
 	create function tinhTien(@MaHD varchar(10))
-	returns int
+	returns float
 	as
 		begin
 			if not exists(select * from ORDERS where @MaHD = MaHD)
@@ -235,11 +304,12 @@ GO
 			return @tongtien
 		end
 	--lệnh chạy hàm
+	select [dbo].[tinhTien] ('MHD7') as TongTien
 	select [dbo].[tinhTien] ('MHD2') as TongTien
 
-	
+--HOÀ
 --FUNCTION3
-  -- Đếm tổng số hoá đơn đã oder
+  -- Viết hàm đếm tổng số hoá đơn đã oder
      CREATE FUNCTION TONGHDD()
 	 RETURNS int AS
 	   BEGIN 
