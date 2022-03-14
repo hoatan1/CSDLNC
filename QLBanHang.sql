@@ -338,3 +338,254 @@ insert_orders 'MHD6','MKH5','2021-12-12','Đã giao',130000,'MPTTT1'--đúng
 		end
 	--lệnh chạy hàm
 	select [dbo].[TONGTIENHD] () as TongTien
+
+	---TRiGGER 
+	--Minh Huy
+	--trigger khi insert một dòng vào bảng order_detail thì cập nhật lại số lượng ở bảng products
+		alter trigger orderdetail_insert
+		on ORDER_DETAIL
+		for insert
+		as
+		begin
+			declare @soluongbandau int
+			declare @soluongmua int
+
+			select @soluongbandau=soluong from products
+			select @soluongmua=SluongSPM from inserted
+			if(@soluongbandau <@soluongmua)
+				begin
+					print N'Số lượng sản phẩm hiện có không đủ để mua'
+					rollback tran
+				end
+				else
+					update products
+					set products.SoLuong=p.SoLuong-inserted.SluongSPM
+					from products as p join inserted on p.MaSP=inserted.maSP
+		end
+
+		-- kiểm tra số lượng mua > số lượng ban đầu   k cho insert
+
+	insert into ORDER_DETAIL values ('MCT7','MHD2','SP1',1,10000);
+	insert into ORDER_DETAIL values ('MCT11','MHD2','SP2',1,10000);
+	SELECT*FROM ORDER_DETAIL;
+	SELECT*FROM PRODUCTS;
+
+
+	alter trigger insert_order_detail1
+	on order_detail
+	for insert
+	as
+	begin 
+		declare @thanhtien int
+		declare @giasp int
+		select @giasp=giasp from PRODUCTS
+		select @thanhtien=@giasp*(select SluongSPM from inserted)
+		if(@thanhtien!=(select thanhtien from inserted))
+			begin
+				print N'Thành tiền tính sai'
+				rollback tran
+			end
+
+
+	end
+	
+	--Thiên Duy
+	-- Sự kiện này thực hiện them vao bang product sau thời gian 1 phút sau khi event đc tạo.
+		CREATE EVENT insert_product_event
+		ON SCHEDULE AT CURRENT_TIMESTAMP + INTERVAL 1 MINUTE
+		ON COMPLETION PRESERVE
+		DO
+		INSERT INTO PRODUCTS VALUES
+			('SP6',N'Nuoc khoang',N'ngon',10000,10)
+		SELECT * FROM ORDER_DETAIL;
+		delete from orders where day(NgayDH) = 28
+		--  Sự kiện sẽ hoạt động hàng ngày và sẽ xóa hoá đơn cũ hơn 7 ngay.
+		CREATE EVENT clean_orderdetail
+		ON SCHEDULE every 1 day
+		DO
+		 delete ORDER_DETAIL from ORDER_DETAIL d join ORDERS o on o.MaHD=d.MaHD where o.NgayDH < date_sub(now(),interval 7 day)
+
+
+	 --TRIGGER
+		--thêm mới nhiều bản ghi trên bảng ORDER_DETAIL, số lượng và tổng thành
+		--tiền phải lớn hơn 0, mã đơn hàng phải có trong bảng ORDERS
+		create trigger trg_insert_orderdetail
+		on ORDER_DETAIL
+		for insert
+		as
+		begin
+		  declare @SoLuong int,@tongtien int
+		  select @SoLuong=SLuongSPM,@tongtien = ThanhTien from inserted
+		  if(@SoLuong < 0 or @tongtien < 0)
+		  begin
+			ROLLBACK TRANSACTION 
+		  end
+		  else
+		  begin
+			 if not exists(select * from ORDERS d join inserted i on 
+			 d.MaHD=i.MaHD)
+			 begin
+				ROLLBACK TRANSACTION 
+			 end
+		  end
+		end
+		insert ORDER_DETAIL values('MCT6','MHD2','SP2',1,60000)
+	--Nguyễn Viết Hạnh
+	--Trigger
+		--Tạo bảng ghi nhật ký thay đổi
+		create table THEMXOA (
+			MaSP VARCHAR(10) ,
+			TenSP NVARCHAR(50) ,
+			MoTa NVARCHAR(255) ,
+			GiaSP float ,
+			SoLuong INT ,
+			NgayUpdated datetime not null,
+			TrangThai char(3) not null,
+			check(TrangThai = 'INS' or TrangThai = 'DEL')
+			);
+		--Tạo Trigger ghi nhật ký thay đổi
+		create trigger trg_nhatky_ins_del
+		on PRODUCTS
+		after insert, delete
+		as
+		begin
+			set nocount on;
+			insert into THEMXOA(MaSP,TenSP,MoTa,GiaSP,SoLuong,NgayUpdated,TrangThai)
+			select 
+				i.MaSP,
+				TenSP,
+				MoTa,
+				GiaSP,
+				SoLuong,
+				getdate(),
+				'INS'
+			from
+				inserted as i
+			union all
+			select d.MaSP,TenSP,MoTa,GiaSP,SoLuong,getdate(),
+				'DEL'
+			from
+				deleted as d;
+		end
+
+
+
+		INSERT INTO PRODUCTS VALUES ('MSP20','test','hdhd',20000,3);
+
+		DELETE FROM PRODUCTS  WHERE SoLuong =2;
+		SELECT*FROM THEMXOA;
+		Select * FROM PRODUCTS;
+		
+	--Nguyễn Hoà
+	CREATE TRIGGER TR_CNSL12 ON ORDER_DETAIL FOR UPDATE,Insert
+	As 
+	BEGIN
+	declare @SLK INT, @SLM INT
+	SELECT @SLK=SoLuong FROM PRODUCTS
+	SELECT @SLM = SLuongSPM  FROM inserted
+		IF(@SLK < @SLM)
+		BEGIN
+		PRINT N'Tổng số lượng mua đá quá số lượng trong kho'
+		ROLLBACK TRAN
+		END
+	END
+
+	DROP TRIGGER TR_CNSL12
+	SELECT*FROM ORDER_DETAIL;
+	update ORDER_DETAIL SET SLuongSPM='31' WHERE MaHD_De_id = 'MCT3'
+
+	--HUYỀN
+	create trigger orders_insert
+	on orders
+	for insert
+	as
+	begin
+		if  not exists (select MaKH from inserted  where MaKH in(select MaKH from customers) )
+			begin 
+				Rollback transaction
+				print N'MaKH không tồn tại'
+			 
+			end
+		if not exists (select  MaPTTT from inserted  where MaPTTT in (select MaPTTT from paymentss))
+			begin
+				Rollback transaction 
+				print N'MaPTTT không tồn tại'
+			
+			end
+	end
+
+	-- tạo trigger khi insert vào bảng orders thì ngày hoá đơn phải nhỏ hơn ngày hiện tại
+	alter trigger orders_insert
+	on orders
+	for insert
+	as 
+	begin
+		declare @ngay date
+		declare @ngayDH date
+		select @ngay=GETDATE()
+		select @ngayDH=ngayDH from inserted
+		if(@ngay <= @ngayDH)
+		begin
+			print N'Ngày đặt hàng phải nhỏ hơn hoặc bằng ngày hiện tại'
+			rollback tran
+		end
+
+	end
+
+	SELECT*FROM CUSTOMERS;
+	SELECT*FROM ORDERS;
+	INSERT INTO ORDERS VALUES
+	('MHD12','MKH5','2022-03-30',N'Đang chuẩn bị hàng',300000, 'MPTTT1');
+	--DƯƠNG
+    	create trigger tg_insert_sanpham
+		on PRODUCTS
+		for  insert
+		as
+			begin
+				declare @soluong int
+
+				select @soluong = SoLuong
+				from inserted
+
+				if (@soluong <= 0)
+				begin
+					print N'Số lượng sản phẩm phải lớn hơn 0.'
+					ROLLBACK TRANSACTION
+				end
+			end
+
+		INSERT INTO PRODUCTS VALUES
+			('SP10',N'Coca',N'ngon',10000,0)
+
+	--Hội
+	--Tạo Trigger không cho phép giảm giá sản phẩm
+		CREATE TRIGGER tg_GIA
+		ON PRODUCTS
+		AFTER UPDATE
+		AS
+			--Kiểm tra giá mới >= giá cũ
+			IF EXISTS(SELECT 1 FROM  INSERTED i JOIN DELETED d ON i.MaSP = d.MaSP WHERE d.GiaSP > i.GiaSP)
+			BEGIN
+				PRINT(N'Chỉ có tăng giá!')
+				ROLLBACK TRANSACTION
+			END
+		GO
+		
+		--Kiểm tra
+		UPDATE PRODUCTS SET GiaSP = GiaSP - 100 WHERE MaSP = 'SP1'
+		UPDATE PRODUCTS SET GiaSP = GiaSP + 100 WHERE MaSP = 'SP1'
+		--Xóa
+		DROP TRIGGER tg_GIA
+		SELECT*FROM PRODUCTS;
+		SELECT*FROM ORDER_DETAIL;
+
+		-- Tạo một Trigger không cho phép xoá chi tiết đơn hàng có sản phẩm là Coca 
+		CREATE TRIGGER DELETESP
+		ON ORDER_DETAIL
+		FOR DELETE
+		AS
+		IF EXISTS(SELECT * FROM DELETED WHERE MaSP='SP1')
+		BEGIN
+		PRINT N'Bạn không thể xoá SP' 
+		ROLLBACK TRANSACTION
+		END 
