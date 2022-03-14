@@ -477,7 +477,7 @@ insert_orders 'MHD6','MKH5','2021-12-12','Đã giao',130000,'MPTTT1'--đúng
 		Select * FROM PRODUCTS;
 		
 	--Nguyễn Hoà
-	CREATE TRIGGER TR_CNSL12 ON ORDER_DETAIL FOR UPDATE,Insert
+	CREATE TRIGGER TR_CNSL ON ORDER_DETAIL FOR UPDATE,Insert
 	As 
 	BEGIN
 	declare @SLK INT, @SLM INT
@@ -485,14 +485,14 @@ insert_orders 'MHD6','MKH5','2021-12-12','Đã giao',130000,'MPTTT1'--đúng
 	SELECT @SLM = SLuongSPM  FROM inserted
 		IF(@SLK < @SLM)
 		BEGIN
-		PRINT N'Tổng số lượng mua đá quá số lượng trong kho'
+		PRINT N'Số lượng mua đã quá số lượng trong kho! vui lòng nhập số lượng ít hơn hoặc bằng trong kho'
 		ROLLBACK TRAN
 		END
 	END
-
-	DROP TRIGGER TR_CNSL12
-	SELECT*FROM ORDER_DETAIL;
-	update ORDER_DETAIL SET SLuongSPM='31' WHERE MaHD_De_id = 'MCT3'
+	DROP TRIGGER TR_CNSL
+	select * from ORDER_DETAIL
+    select * from PRODUCTS
+	update ORDER_DETAIL SET SLuongSPM='11' WHERE MaHD_De_id = 'MCT5'
 
 	--HUYỀN
 	create trigger orders_insert
