@@ -339,7 +339,9 @@ insert_orders 'MHD6','MKH5','2021-12-12','Đã giao',130000,'MPTTT1'--đúng
 	--lệnh chạy hàm
 	select [dbo].[TONGTIENHD] () as TongTien
 
-	---TRiGGER 
+	
+		
+---TRiGGER 
 	--Minh Huy
 	--trigger khi insert một dòng vào bảng order_detail thì cập nhật lại số lượng ở bảng products
 		alter trigger orderdetail_insert
@@ -390,20 +392,12 @@ insert_orders 'MHD6','MKH5','2021-12-12','Đã giao',130000,'MPTTT1'--đúng
 	end
 	
 	--Thiên Duy
-	-- Sự kiện này thực hiện them vao bang product sau thời gian 1 phút sau khi event đc tạo.
-		CREATE EVENT insert_product_event
+	--  Sự kiện sẽ sẽ xóa chi tiet hoa don cũ hơn một tuần và thực hiện sau thời gian 1 phút sau khi event đc tạo
+		CREATE EVENT clean_order2
 		ON SCHEDULE AT CURRENT_TIMESTAMP + INTERVAL 1 MINUTE
 		ON COMPLETION PRESERVE
 		DO
-		INSERT INTO PRODUCTS VALUES
-			('SP6',N'Nuoc khoang',N'ngon',10000,10)
-		SELECT * FROM ORDER_DETAIL;
-		delete from orders where day(NgayDH) = 28
-		--  Sự kiện sẽ hoạt động hàng ngày và sẽ xóa hoá đơn cũ hơn 7 ngay.
-		CREATE EVENT clean_orderdetail
-		ON SCHEDULE every 1 day
-		DO
-		 delete ORDER_DETAIL from ORDER_DETAIL d join ORDERS o on o.MaHD=d.MaHD where o.NgayDH < date_sub(now(),interval 7 day)
+		delete from ORDER_DETAIL where MaHD in(select MaHD from ORDERS where Date(NgayDH) < Date(date_sub(now(),interval 1 year)));
 
 
 	 --TRIGGER
@@ -495,6 +489,7 @@ insert_orders 'MHD6','MKH5','2021-12-12','Đã giao',130000,'MPTTT1'--đúng
 	update ORDER_DETAIL SET SLuongSPM='11' WHERE MaHD_De_id = 'MCT5'
 
 	--HUYỀN
+	-- tạo trigger khi insert vào bảng orders kiểm tra tính hợp lệ mã khách hàng đã có hay chưa, phương thức thanh toán có tồn tại hay không
 	create trigger orders_insert
 	on orders
 	for insert
@@ -513,8 +508,9 @@ insert_orders 'MHD6','MKH5','2021-12-12','Đã giao',130000,'MPTTT1'--đúng
 			
 			end
 	end
+	
 
-	-- tạo trigger khi insert vào bảng orders thì ngày hoá đơn phải nhỏ hơn ngày hiện tại
+	-- tạo trigger khi insert vào bảng orders thì ngày hoá đơn phải nhỏ hơn hoặc bằng ngày hiện tại
 	alter trigger orders_insert
 	on orders
 	for insert
@@ -525,17 +521,22 @@ insert_orders 'MHD6','MKH5','2021-12-12','Đã giao',130000,'MPTTT1'--đúng
 		select @ngay=GETDATE()
 		select @ngayDH=ngayDH from inserted
 		if(@ngay <= @ngayDH)
-		begin
-			print N'Ngày đặt hàng phải nhỏ hơn hoặc bằng ngày hiện tại'
-			rollback tran
-		end
+			begin
+				print N'Ngày đặt hàng phải nhỏ hơn hoặc bằng ngày hiện tại'
+				rollback tran
+				
+			end
+		else  
+		     
 
 	end
 
 	SELECT*FROM CUSTOMERS;
 	SELECT*FROM ORDERS;
 	INSERT INTO ORDERS VALUES
-	('MHD12','MKH5','2022-03-30',N'Đang chuẩn bị hàng',300000, 'MPTTT1');
+	('MHD12','MKH7','2022-03-12',N'Đang chuẩn bị hàng',300000, 'MPTTT1');
+	INSERT INTO ORDERS VALUES
+	('MHD12','MKH4','2022-03-30',N'Đang chuẩn bị hàng',300000, 'MPTTT1');
 	--DƯƠNG
     	create trigger tg_insert_sanpham
 		on PRODUCTS
@@ -588,4 +589,9 @@ insert_orders 'MHD6','MKH5','2021-12-12','Đã giao',130000,'MPTTT1'--đúng
 		BEGIN
 		PRINT N'Bạn không thể xoá SP' 
 		ROLLBACK TRANSACTION
-		END 
+		END
+
+
+	
+
+	
